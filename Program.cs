@@ -1,4 +1,6 @@
-﻿using Newtonsoft.Json;
+﻿using System;
+using System.Text;
+using Newtonsoft.Json;
 
 var currentDirectory = Directory.GetCurrentDirectory();
 var storesDirectory = Path.Combine(currentDirectory, "stores");
@@ -11,6 +13,8 @@ var salesFiles = FindFiles(storesDirectory);
 var salesTotal = CalculateSalesTotal(salesFiles);
 
 File.AppendAllText(Path.Combine(salesTotalDir, "totals.txt"), $"{salesTotal}{Environment.NewLine}");
+
+GenerateSalesReport(salesFiles, salesTotal, salesTotalDir);
 
 IEnumerable<string> FindFiles(string folderName)
 {
@@ -64,6 +68,48 @@ double CalculateSalesTotal(IEnumerable<string> salesFiles)
     }
 
     return salesTotal;
+}
+
+void GenerateSalesReport(IEnumerable<string> salesFiles, double salesTotal, string salesTotalDir)
+{
+    var report = new StringBuilder();
+    report.AppendLine("Sales Summary");
+    report.AppendLine("----------------------------");
+    report.AppendLine($"Total Sales: {salesTotal:C}");
+    report.AppendLine("\nDetails:");
+
+    foreach (var file in salesFiles)
+    {
+        try
+        {
+            string salesJson = File.ReadAllText(file);
+            if (string.IsNullOrWhiteSpace(salesJson))
+            {
+                report.AppendLine($"  {Path.GetFileName(file)}: Empty file");
+                continue;
+            }
+
+            SalesData? data = JsonConvert.DeserializeObject<SalesData?>(salesJson);
+            if (data != null)
+            {
+                report.AppendLine($"  {Path.GetFileName(file)}: {data.Total:C}");
+            }
+            else
+            {
+                report.AppendLine($"  {Path.GetFileName(file)}: Invalid JSON");
+            }
+        }
+        catch (JsonException)
+        {
+            report.AppendLine($"  {Path.GetFileName(file)}: Error parsing JSON");
+        }
+        catch (Exception)
+        {
+            report.AppendLine($"  {Path.GetFileName(file)}: Error reading file");
+        }
+    }
+
+    File.WriteAllText(Path.Combine(salesTotalDir, "salesReport.txt"), report.ToString());
 }
 
 record SalesData(double Total);
