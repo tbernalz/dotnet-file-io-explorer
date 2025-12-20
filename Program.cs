@@ -16,16 +16,13 @@ IEnumerable<string> FindFiles(string folderName)
 {
     List<string> salesFiles = new List<string>();
 
-    var foundFiles = Directory.EnumerateFiles(folderName, "*", SearchOption.AllDirectories);
+    var foundFiles = Directory.EnumerateFiles(
+        folderName,
+        "sales.json",
+        SearchOption.AllDirectories
+    );
 
-    foreach (var file in foundFiles)
-    {
-        var extension = Path.GetExtension(file);
-        if (extension == ".json")
-        {
-            salesFiles.Add(file);
-        }
-    }
+    salesFiles.AddRange(foundFiles);
 
     return salesFiles;
 }
@@ -36,9 +33,34 @@ double CalculateSalesTotal(IEnumerable<string> salesFiles)
 
     foreach (var file in salesFiles)
     {
-        string salesJson = File.ReadAllText(file);
-        SalesData? data = JsonConvert.DeserializeObject<SalesData?>(salesJson);
-        salesTotal += data?.Total ?? 0;
+        try
+        {
+            string salesJson = File.ReadAllText(file);
+            if (string.IsNullOrWhiteSpace(salesJson))
+            {
+                Console.WriteLine($"Warning: File {file} is empty.");
+                continue;
+            }
+
+            SalesData? data = JsonConvert.DeserializeObject<SalesData?>(salesJson);
+            if (data != null)
+            {
+                salesTotal += data.Total;
+                Console.WriteLine($"Processed {file}: Total = {data.Total}");
+            }
+            else
+            {
+                Console.WriteLine($"Warning: Failed to parse JSON in {file}.");
+            }
+        }
+        catch (JsonException ex)
+        {
+            Console.WriteLine($"Error parsing {file}: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error reading {file}: {ex.Message}");
+        }
     }
 
     return salesTotal;
